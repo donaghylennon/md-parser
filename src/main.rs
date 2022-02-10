@@ -7,15 +7,15 @@ use std::path::Path;
 #[derive(Debug)]
 enum MarkdownText {
     Text(String),
-    Bold(Box<MarkdownText>),
-    Italic(Box<MarkdownText>),
+    Bold(Vec<MarkdownText>),
+    Italic(Vec<MarkdownText>),
 }
 
 #[derive(Debug)]
 enum Markdown {
-    Heading(u8, Box<MarkdownText>),
-    Paragraph(Box<MarkdownText>),
-    BlockQuote(Box<MarkdownText>),
+    Heading(u8, Vec<MarkdownText>),
+    Paragraph(Vec<MarkdownText>),
+    BlockQuote(Vec<MarkdownText>),
     List(ListType, Vec<MarkdownText>),
     Code(String),
     HorizontalRule,
@@ -76,5 +76,5 @@ fn parse_heading(chars: &mut Peekable<Chars>) -> Markdown {
         .skip_while(|&c| c.is_whitespace())
         .take_while(|&c| c != '\n')
         .collect();
-    Markdown::Heading(num, Box::new(MarkdownText::Text(text)))
+    Markdown::Heading(num, vec![MarkdownText::Text(text)])
 }

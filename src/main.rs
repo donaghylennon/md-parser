@@ -80,7 +80,8 @@ fn parse_md(input: &str) -> Option<MarkdownFile> {
 
 fn parse_heading(chars: &mut Peekable<Chars>) -> Markdown {
     let mut num = 0;
-    while *chars.peek().unwrap() == '#' {
+
+    while let Some(&'#') = chars.peek() {
         chars.next();
         num += 1;
     }

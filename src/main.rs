@@ -41,6 +41,12 @@ fn main() {
     } else {
         println!("Something went wrong!");
     }
+
+    if let Some(md_file) = parse_md_from_file("examples/paragraph.md") {
+        println!("paragraph.md contains:\n{:?}", md_file);
+    } else {
+        println!("Something went wrong!");
+    }
 }
 
 fn parse_md_from_file(filename: &str) -> Option<MarkdownFile> {
@@ -65,7 +71,7 @@ fn parse_md(input: &str) -> Option<MarkdownFile> {
                 chars.next();
             }
             _ => {
-                chars.next();
+                md_file.push(parse_paragraph(&mut chars));
             }
         };
     }
@@ -85,44 +91,82 @@ fn parse_heading(chars: &mut Peekable<Chars>) -> Markdown {
     Markdown::Heading(num, parse_md_text(&mut text.chars().peekable()))
 }
 
+fn parse_paragraph(chars: &mut Peekable<Chars>) -> Markdown {
+    let mut prev_was_newline = false;
+    let text: String = chars
+        .take_while(|&c| {
+            if prev_was_newline {
+                prev_was_newline = false;
+                if c == '\n' {
+                    false
+                } else {
+                    true
+                }
+            } else {
+                if c == '\n' {
+                    prev_was_newline = true;
+                }
+                true
+            }
+        })
+        .collect();
+
+    Markdown::Paragraph(parse_md_text(&mut text.chars().peekable()))
+}
+
 fn parse_md_text(chars: &mut Peekable<Chars>) -> Vec<MarkdownText> {
     let mut md_text = vec![];
+    let mut current_text: Option<String> = None;
     while let Some(&ch) = chars.peek() {
         match ch {
             '*' => {
+                if let Some(text) = current_text.take() {
+                    md_text.push(MarkdownText::Text(text));
+                }
                 chars.next();
                 md_text.push(parse_md_text_bold(chars));
             }
             '_' => {
+                if let Some(text) = current_text.take() {
+                    md_text.push(MarkdownText::Text(text));
+                }
                 chars.next();
                 md_text.push(parse_md_text_italic(chars));
             }
             _   => {
-                md_text.push(parse_md_text_text(chars));
+                if let Some(text) = &mut current_text {
+                    text.push(ch);
+                } else {
+                    let mut new_string = String::new();
+                    new_string.push(ch);
+                    current_text = Some(new_string);
+                }
+                chars.next();
             }
         }
+    }
+    if let Some(text) = current_text.take() {
+        md_text.push(MarkdownText::Text(text));
     }
     md_text
 }
 
 fn parse_md_text_bold(chars: &mut Peekable<Chars>) -> MarkdownText {
     let mut md_text = vec![];
+    let text: String = chars
+        .take_while(|&c| c != '*')
+        .collect();
+    let mut chars = text.chars()
+        .peekable();
+
     while let Some(&ch) = chars.peek() {
         match ch {
-            '*' => {
-                chars.next();
-                return MarkdownText::Bold(md_text);
-            }
             '_' => {
                 chars.next();
-                md_text.push(parse_md_text_italic(chars));
-            }
-            '\n' => {
-                chars.next();
-                return MarkdownText::Bold(md_text);
+                md_text.push(parse_md_text_italic(&mut chars));
             }
             _   => {
-                md_text.push(parse_md_text_text(chars));
+                md_text.push(parse_md_text_text(&mut chars));
             }
         }
     }
@@ -131,22 +175,20 @@ fn parse_md_text_bold(chars: &mut Peekable<Chars>) -> MarkdownText {
 
 fn parse_md_text_italic(chars: &mut Peekable<Chars>) -> MarkdownText {
     let mut md_text = vec![];
+    let text: String = chars
+        .take_while(|&c| c != '_')
+        .collect();
+    let mut chars = text.chars()
+        .peekable();
+
     while let Some(&ch) = chars.peek() {
         match ch {
             '*' => {
                 chars.next();
-                md_text.push(parse_md_text_bold(chars));
-            }
-            '_' => {
-                chars.next();
-                return MarkdownText::Italic(md_text);
-            }
-            '\n' => {
-                chars.next();
-                return MarkdownText::Italic(md_text);
+                md_text.push(parse_md_text_bold(&mut chars));
             }
             _   => {
-                md_text.push(parse_md_text_text(chars));
+                md_text.push(parse_md_text_text(&mut chars));
             }
         }
     }

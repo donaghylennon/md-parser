@@ -16,12 +16,12 @@ enum Markdown {
     Heading(u8, Vec<MarkdownText>),
     Paragraph(Vec<MarkdownText>),
     BlockQuote(Vec<MarkdownText>),
-    List(ListType, Vec<MarkdownText>),
+    List(ListType, Vec<Vec<MarkdownText>>),
     Code(String),
     HorizontalRule,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum ListType {
     Ordered,
     Unordered,
@@ -47,6 +47,12 @@ fn main() {
     } else {
         println!("Something went wrong!");
     }
+
+    if let Some(md_file) = parse_md_from_file("examples/list.md") {
+        println!("list.md contains:\n{:?}", md_file);
+    } else {
+        println!("Something went wrong!");
+    }
 }
 
 fn parse_md_from_file(filename: &str) -> Option<MarkdownFile> {
@@ -69,6 +75,12 @@ fn parse_md(input: &str) -> Option<MarkdownFile> {
             }
             '\n' => {
                 chars.next();
+            }
+            '-' => {
+                md_file.push(parse_list(&mut chars, ListType::Unordered));
+            }
+            '0'..='9' => {
+                md_file.push(parse_list(&mut chars, ListType::Ordered));
             }
             _ => {
                 md_file.push(parse_paragraph(&mut chars));
@@ -113,6 +125,34 @@ fn parse_paragraph(chars: &mut Peekable<Chars>) -> Markdown {
         .collect();
 
     Markdown::Paragraph(parse_md_text(&mut text.chars().peekable()))
+}
+
+fn parse_list(chars: &mut Peekable<Chars>, list_type: ListType) -> Markdown {
+    use ListType::*;
+    let mut items = vec![];
+    while let Some(&ch) = chars.peek() {
+        if list_type == Unordered && ch == '-' {
+            chars.next();
+            let item: String = chars
+                .skip_while(|&c| c.is_whitespace())
+                .take_while(|&c| c != '\n')
+                .collect();
+            items.push(parse_md_text(&mut item.chars().peekable()));
+        } else if list_type == Ordered && ch.is_digit(10) {
+            chars.next();
+            let item: String = chars
+                .skip_while(|&c| c.is_digit(10) || c == '.')
+                .skip_while(|&c| c.is_whitespace())
+                .take_while(|&c| c != '\n')
+                .collect();
+            items.push(parse_md_text(&mut item.chars().peekable()));
+        } else if ch.is_whitespace() {
+            chars.next();
+        } else {
+            return Markdown::List(list_type, items);
+        }
+    }
+    Markdown::List(list_type, items)
 }
 
 fn parse_md_text(chars: &mut Peekable<Chars>) -> Vec<MarkdownText> {

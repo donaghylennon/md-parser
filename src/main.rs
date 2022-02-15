@@ -53,6 +53,12 @@ fn main() {
     } else {
         println!("Something went wrong!");
     }
+
+    if let Some(md_file) = parse_md_from_file("examples/code.md") {
+        println!("code.md contains:\n{:?}", md_file);
+    } else {
+        println!("Something went wrong!");
+    }
 }
 
 fn parse_md_from_file(filename: &str) -> Option<MarkdownFile> {
@@ -81,6 +87,10 @@ fn parse_md(input: &str) -> Option<MarkdownFile> {
             }
             '0'..='9' => {
                 md_file.push(parse_list(&mut chars, ListType::Ordered));
+            }
+            '`' => {
+                chars.next();
+                md_file.push(parse_code(&mut chars));
             }
             _ => {
                 md_file.push(parse_paragraph(&mut chars));
@@ -153,6 +163,37 @@ fn parse_list(chars: &mut Peekable<Chars>, list_type: ListType) -> Markdown {
         }
     }
     Markdown::List(list_type, items)
+}
+
+fn parse_code(chars: &mut Peekable<Chars>) -> Markdown {
+    if chars.peek() == Some(&'`') {
+        chars.next();
+        let mut prev_was_backtick = false;
+        let mut text: String = chars
+            .take_while(|&c| {
+                if c == '`' {
+                    if prev_was_backtick {
+                        false
+                    } else {
+                        prev_was_backtick = true;
+                        true
+                    }
+                } else {
+                    prev_was_backtick = false;
+                    true
+                }
+            })
+            .collect();
+        if prev_was_backtick {
+            text.pop();
+        }
+        Markdown::Code(text)
+    } else {
+        let text: String = chars
+            .take_while(|&c| c != '`')
+            .collect();
+        Markdown::Code(text)
+    }
 }
 
 fn parse_md_text(chars: &mut Peekable<Chars>) -> Vec<MarkdownText> {

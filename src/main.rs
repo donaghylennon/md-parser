@@ -15,7 +15,7 @@ enum MarkdownText {
 enum Markdown {
     Heading(u8, Vec<MarkdownText>),
     Paragraph(Vec<MarkdownText>),
-    BlockQuote(Vec<MarkdownText>),
+    BlockQuote(String),
     List(ListType, Vec<Vec<MarkdownText>>),
     Code(String),
     HorizontalRule,
@@ -59,6 +59,12 @@ fn main() {
     } else {
         println!("Something went wrong!");
     }
+
+    if let Some(md_file) = parse_md_from_file("examples/block_quote.md") {
+        println!("block_quote.md contains:\n{:?}", md_file);
+    } else {
+        println!("Something went wrong!");
+    }
 }
 
 fn parse_md_from_file(filename: &str) -> Option<MarkdownFile> {
@@ -91,6 +97,9 @@ fn parse_md(input: &str) -> Option<MarkdownFile> {
             '`' => {
                 chars.next();
                 md_file.push(parse_code(&mut chars));
+            }
+            '>' => {
+                md_file.push(parse_blockquote(&mut chars));
             }
             _ => {
                 md_file.push(parse_paragraph(&mut chars));
@@ -194,6 +203,17 @@ fn parse_code(chars: &mut Peekable<Chars>) -> Markdown {
             .collect();
         Markdown::Code(text)
     }
+}
+
+fn parse_blockquote(chars: &mut Peekable<Chars>) -> Markdown {
+    let mut quote = String::new();
+    while chars.peek() == Some(&'>') {
+        chars.next();
+        quote.extend(chars.skip_while(|&c| c.is_whitespace())
+            .take_while(|&c| c != '\n'));
+        quote.push('\n');
+    }
+    Markdown::BlockQuote(quote)
 }
 
 fn parse_md_text(chars: &mut Peekable<Chars>) -> Vec<MarkdownText> {
